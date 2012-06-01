@@ -1,0 +1,131 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <link type="text/css" href="css/ui-lightness/jquery-ui-1.8.20.custom.css" rel="stylesheet" />
+    <script src="js/jquery-1.7.2.min.js" type="application/javascript"></script>
+    <script src="js/jquery-ui-1.8.20.custom.min.js" type="application/javascript"></script>
+    <script src="js/persistence.js" type="application/javascript"></script>
+    <script src="js/persistence.store.sql.js" type="application/javascript"></script>
+    <script src="js/persistence.store.websql.js" type="application/javascript"></script>
+    
+    <script>
+      var Task;
+    
+      function onLoad() {
+        persistence.store.websql.config(persistence, 'persistence_js_db', 'A test database', 1 * 1024 * 1024);
+        
+        Task = persistence.define('Task', {
+          name: "TEXT",
+          description: "TEXT",
+          done: "BOOL"
+        });
+        Task.index('name',{unique:true});
+        Task.index('done');
+
+        var Category = persistence.define('Category', {
+          name: "TEXT",
+          metaData: "JSON"
+        });
+
+        var Tag = persistence.define('Tag', {
+          name: "TEXT"
+        });
+
+        // This defines a one-to-many relationship
+        Category.hasMany('tasks', Task, 'category');
+        // These two definitions define a many-to-many relationship
+        Task.hasMany('tags', Tag, 'tasks');
+        Tag.hasMany('tasks', Task, 'tags');
+
+        // apply datamodel to db
+        persistence.schemaSync();
+        
+        // create a new Category
+        var category = new Category({name: "My category"});
+        category.metaData = {rating: 5};
+        
+        // create a new Tag
+        var tag = new Tag();
+        tag.name = "work";
+        
+        // create a new Task
+        var task = new Task();
+        task.name = "my new task";
+        task.category = category; // Many-to-one relationship 
+        task.tags.add(tag); // many-to-many relationships
+
+        persistence.flush(); // save
+      }
+      
+      function listTasks() {
+        //var allTasks = Task.all().filter("done", '=', true).prefetch("category").order("name", false).limit(10);
+        var allTasks = Task.all().filter("name", '!=', "");
+
+        allTasks.list(null, function (results) {
+            results.forEach(function (r) {
+                console.log("task name:" + r.name)
+                window.task = r;
+            });
+        });
+      }
+      
+      function addTask() {
+        var inputs = $('#addTask :input');
+        var taskName = inputs.filter('[name^="taskName"]').val();
+        var taskDesc = inputs.filter('[name^="taskDescription"]').val();
+        
+        console.log("taskName="+taskName);
+        console.log("taskDesc="+taskDesc);
+        
+        inputs.each( function() {
+          $(this).val('');
+        });
+      }
+      
+      
+      $(function() {
+        $("#addTask").dialog({
+          autoOpen: false,
+          height: 300,
+          width: 350,
+          modal: true,
+          buttons: { 
+            "Add": addTask(),
+            Cancel: function() {
+              $( this ).dialog( "close" );
+            }
+          },
+          close: function() {
+            allFields.val( "" ).removeClass( "ui-state-error" );
+          }
+        });
+        
+        //$( "#addTaskButton" ).button().click(function() {
+        //  $( "#addTask" ).dialog( "open" );
+        //});
+      });
+    </script>
+    
+    <title>Persistence.js Example</title>
+  </head>
+  <body onload="onLoad()">
+    <p>
+      <span onclick="listTasks()">List tasks</span>
+    </p>
+    
+    <p>
+      <button id="addTaskButton" onclick='$( "#addTask" ).dialog( "open" );'>Add Task</button>
+    </p>
+    
+    <div id="addTask">
+      <h2>Add Task</h2>
+      <form>
+        <fieldset>
+          <br/>Name: <input type="text" name="taskName" size="20">
+          <br/>Desc: <input type="text" name="taskDescription" size="20">
+          <!--<br/><input type="button" name="add" onclick="addTask();">-->
+        </fieldset>
+      </form>
+  </body>
+</html>
